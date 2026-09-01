@@ -60,7 +60,9 @@ def activity(*, distance: float = 10000.0, extra: object | None = None) -> dict[
 
 
 def test_capability_manifest_is_provider_specific() -> None:
-    adapter = GarminCompletedActivityAdapter(client=FixtureClient({}), evidence_store=MemoryEvidenceStore())
+    adapter = GarminCompletedActivityAdapter(
+        client=FixtureClient({}), evidence_store=MemoryEvidenceStore()
+    )
     assert adapter.capabilities.provider == "garmin"
     assert adapter.capabilities.supported_source_types == ("completed_activity",)
     assert adapter.capabilities.supports_incremental_sync
@@ -88,7 +90,8 @@ def test_duplicate_delivery_has_identical_hash() -> None:
         client=FixtureClient({None: GarminActivityPage((activity(), activity()))}),
         evidence_store=store,
     )
-    records = adapter.fetch_page(connection_id="conn-1", mode=SyncMode.INCREMENTAL, cursor=None).records
+    page = adapter.fetch_page(connection_id="conn-1", mode=SyncMode.INCREMENTAL, cursor=None)
+    records = page.records
     assert records[0].source_record_id == records[1].source_record_id
     assert records[0].payload_hash == records[1].payload_hash
 
@@ -99,14 +102,16 @@ def test_updated_provider_record_has_changed_hash() -> None:
         client=FixtureClient({None: GarminActivityPage((activity(), activity(distance=10010.0)))}),
         evidence_store=store,
     )
-    records = adapter.fetch_page(connection_id="conn-1", mode=SyncMode.INCREMENTAL, cursor=None).records
+    page = adapter.fetch_page(connection_id="conn-1", mode=SyncMode.INCREMENTAL, cursor=None)
+    records = page.records
     assert records[0].source_record_id == records[1].source_record_id == "G123"
     assert records[0].payload_hash != records[1].payload_hash
 
 
 def test_pagination_cursor_is_preserved() -> None:
+    page_one = GarminActivityPage((activity(),), next_cursor="page-2", complete=False)
     adapter = GarminCompletedActivityAdapter(
-        client=FixtureClient({None: GarminActivityPage((activity(),), next_cursor="page-2", complete=False)}),
+        client=FixtureClient({None: page_one}),
         evidence_store=MemoryEvidenceStore(),
     )
     page = adapter.fetch_page(connection_id="conn-1", mode=SyncMode.BACKFILL, cursor=None)
@@ -130,10 +135,20 @@ class ErrorClient:
 
 @pytest.mark.parametrize(
     ("status", "expected_class", "retryable"),
-    [(401, ErrorClass.AUTHENTICATION, False), (429, ErrorClass.RATE_LIMIT, True), (503, ErrorClass.DEPENDENCY, True)],
+    [
+        (401, ErrorClass.AUTHENTICATION, False),
+        (429, ErrorClass.RATE_LIMIT, True),
+        (503, ErrorClass.DEPENDENCY, True),
+    ],
 )
-def test_provider_errors_are_normalized(status: int, expected_class: ErrorClass, retryable: bool) -> None:
-    adapter = GarminCompletedActivityAdapter(client=ErrorClient(status), evidence_store=MemoryEvidenceStore())
+def test_provider_errors_are_normalized(
+    status: int,
+    expected_class: ErrorClass,
+    retryable: bool,
+) -> None:
+    adapter = GarminCompletedActivityAdapter(
+        client=ErrorClient(status), evidence_store=MemoryEvidenceStore()
+    )
     with pytest.raises(FitnessOSError) as captured:
         adapter.fetch_page(connection_id="conn-1", mode=SyncMode.INCREMENTAL, cursor=None)
     assert captured.value.error_class is expected_class
