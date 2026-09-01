@@ -27,48 +27,87 @@ def upgrade() -> None:
         sa.Column("decision", sa.String(length=128), nullable=False),
         sa.Column("score", sa.Float()),
         sa.Column("evidence_reference", sa.String(length=1024)),
-        sa.Column("evaluated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "evaluated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
     op.create_table(
         "reconciliation_group",
         sa.Column("group_id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("canonical_entity_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("canonical_entity.entity_id")),
+        sa.Column(
+            "canonical_entity_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("canonical_entity.entity_id"),
+        ),
         sa.Column("entity_type", sa.String(length=128), nullable=False),
         sa.Column("state", sa.String(length=128), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
     op.create_table(
         "reconciliation_member",
         sa.Column("member_id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("group_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("reconciliation_group.group_id"), nullable=False),
+        sa.Column(
+            "group_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("reconciliation_group.group_id"),
+            nullable=False,
+        ),
         sa.Column("observation_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("source", sa.String(length=128), nullable=False),
         sa.Column("relationship", sa.String(length=128), nullable=False),
         sa.Column("confidence", sa.Float()),
         sa.Column("decision_reference", sa.String(length=1024)),
-        sa.UniqueConstraint("group_id", "observation_id", name="uq_reconciliation_member"),
+        sa.UniqueConstraint(
+            "group_id", "observation_id", name="uq_reconciliation_member"
+        ),
     )
     op.create_table(
         "reconciliation_conflict",
         sa.Column("conflict_id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("group_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("reconciliation_group.group_id")),
+        sa.Column(
+            "group_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("reconciliation_group.group_id"),
+        ),
         sa.Column("conflict_type", sa.String(length=128), nullable=False),
         sa.Column("state", sa.String(length=128), nullable=False),
         sa.Column("candidate_set_reference", sa.String(length=1024)),
         sa.Column("resolution_reference", sa.String(length=1024)),
-        sa.Column("detected_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "detected_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
     op.create_table(
         "authority_decision",
         sa.Column("decision_id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("canonical_entity_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("canonical_entity.entity_id")),
+        sa.Column(
+            "canonical_entity_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("canonical_entity.entity_id"),
+        ),
         sa.Column("metric_reference", sa.String(length=512), nullable=False),
         sa.Column("selected_observation_id", postgresql.UUID(as_uuid=True)),
         sa.Column("authority_version", sa.String(length=128), nullable=False),
         sa.Column("rule_reference", sa.String(length=1024)),
         sa.Column("decision", sa.String(length=128), nullable=False),
         sa.Column("reason_code", sa.String(length=256)),
-        sa.Column("decided_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "decided_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
 
 
