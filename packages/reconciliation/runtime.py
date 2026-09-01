@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from uuid import UUID
 
 from packages.contracts.reconciliation import (
     AuthorityCandidate,
