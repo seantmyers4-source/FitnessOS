@@ -15,9 +15,14 @@ class PipelineExecution(Base):
 
     __tablename__ = "pipeline_execution"
 
-    execution_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    execution_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
     evidence_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("source_evidence.evidence_id"), nullable=False, index=True
+        PGUUID(as_uuid=True),
+        ForeignKey("source_evidence.evidence_id"),
+        nullable=False,
+        index=True,
     )
     pipeline_version: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
@@ -42,7 +47,10 @@ class PipelineStageExecution(Base):
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     execution_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("pipeline_execution.execution_id"), nullable=False, index=True
+        PGUUID(as_uuid=True),
+        ForeignKey("pipeline_execution.execution_id"),
+        nullable=False,
+        index=True,
     )
     stage: Mapped[str] = mapped_column(String(128), nullable=False)
     stage_order: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -61,12 +69,20 @@ class QuarantineRecord(Base):
 
     __tablename__ = "quarantine_record"
 
-    quarantine_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    quarantine_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
     evidence_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("source_evidence.evidence_id"), nullable=False, index=True
+        PGUUID(as_uuid=True),
+        ForeignKey("source_evidence.evidence_id"),
+        nullable=False,
+        index=True,
     )
     execution_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("pipeline_execution.execution_id"), nullable=False, index=True
+        PGUUID(as_uuid=True),
+        ForeignKey("pipeline_execution.execution_id"),
+        nullable=False,
+        index=True,
     )
     failure_stage: Mapped[str] = mapped_column(String(128), nullable=False)
     rule_reference: Mapped[str | None] = mapped_column(String(512))
@@ -85,7 +101,10 @@ class ReplayRequest(Base):
 
     replay_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     evidence_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("source_evidence.evidence_id"), nullable=False, index=True
+        PGUUID(as_uuid=True),
+        ForeignKey("source_evidence.evidence_id"),
+        nullable=False,
+        index=True,
     )
     prior_execution_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("pipeline_execution.execution_id")
