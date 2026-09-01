@@ -18,8 +18,12 @@ class DuplicateEvaluation(Base):
     evaluation_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
-    left_observation_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, index=True)
-    right_observation_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, index=True)
+    left_observation_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), nullable=False, index=True
+    )
+    right_observation_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), nullable=False, index=True
+    )
     strategy_id: Mapped[str] = mapped_column(String(256), nullable=False)
     strategy_version: Mapped[str] = mapped_column(String(64), nullable=False)
     decision: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
@@ -52,7 +56,9 @@ class ReconciliationMember(Base):
     """Observation membership in a reconciliation group."""
 
     __tablename__ = "reconciliation_member"
-    __table_args__ = (UniqueConstraint("group_id", "observation_id", name="uq_reconciliation_member"),)
+    __table_args__ = (
+        UniqueConstraint("group_id", "observation_id", name="uq_reconciliation_member"),
+    )
 
     member_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
@@ -63,7 +69,9 @@ class ReconciliationMember(Base):
         nullable=False,
         index=True,
     )
-    observation_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, index=True)
+    observation_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), nullable=False, index=True
+    )
     source: Mapped[str] = mapped_column(String(128), nullable=False)
     relationship: Mapped[str] = mapped_column(String(128), nullable=False)
     confidence: Mapped[float | None] = mapped_column(Float)
@@ -102,7 +110,9 @@ class AuthorityDecision(Base):
         PGUUID(as_uuid=True), ForeignKey("canonical_entity.entity_id"), index=True
     )
     metric_reference: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
-    selected_observation_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), index=True)
+    selected_observation_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), index=True
+    )
     authority_version: Mapped[str] = mapped_column(String(128), nullable=False)
     rule_reference: Mapped[str | None] = mapped_column(String(1024))
     decision: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
