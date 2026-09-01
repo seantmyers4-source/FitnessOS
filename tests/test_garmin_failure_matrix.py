@@ -15,7 +15,14 @@ class EvidenceStore:
     def __init__(self) -> None:
         self.payloads: dict[str, bytes] = {}
 
-    def persist_payload(self, *, connection_id: str, source_record_id: str, payload: bytes, payload_hash: str) -> str:
+    def persist_payload(
+        self,
+        *,
+        connection_id: str,
+        source_record_id: str,
+        payload: bytes,
+        payload_hash: str,
+    ) -> str:
         reference = f"evidence://{source_record_id}/{payload_hash}"
         self.payloads[reference] = payload
         return reference
@@ -25,15 +32,30 @@ class ErrorClient:
     def __init__(self, status: int) -> None:
         self.status = status
 
-    def fetch_completed_activities(self, *, connection_id: str, cursor: str | None, backfill: bool) -> GarminActivityPage:
-        raise GarminClientError(status_code=self.status, diagnostic_reference=f"diag://{self.status}")
+    def fetch_completed_activities(
+        self,
+        *,
+        connection_id: str,
+        cursor: str | None,
+        backfill: bool,
+    ) -> GarminActivityPage:
+        raise GarminClientError(
+            status_code=self.status,
+            diagnostic_reference=f"diag://{self.status}",
+        )
 
 
 class PayloadClient:
     def __init__(self, payload: dict[str, object]) -> None:
         self.payload = payload
 
-    def fetch_completed_activities(self, *, connection_id: str, cursor: str | None, backfill: bool) -> GarminActivityPage:
+    def fetch_completed_activities(
+        self,
+        *,
+        connection_id: str,
+        cursor: str | None,
+        backfill: bool,
+    ) -> GarminActivityPage:
         return GarminActivityPage((self.payload,), complete=True)
 
 
@@ -46,11 +68,17 @@ class PayloadClient:
         (503, ErrorClass.DEPENDENCY, True),
     ],
 )
-def test_provider_error_matrix(status: int, error_class: ErrorClass, retryable: bool) -> None:
-    adapter = GarminCompletedActivityAdapter(client=ErrorClient(status), evidence_store=EvidenceStore())
+def test_provider_error_matrix(
+    status: int, error_class: ErrorClass, retryable: bool
+) -> None:
+    adapter = GarminCompletedActivityAdapter(
+        client=ErrorClient(status), evidence_store=EvidenceStore()
+    )
 
     with pytest.raises(FitnessOSError) as caught:
-        adapter.fetch_page(connection_id="connection", mode=SyncMode.INCREMENTAL, cursor=None)
+        adapter.fetch_page(
+            connection_id="connection", mode=SyncMode.INCREMENTAL, cursor=None
+        )
 
     assert caught.value.error_class is error_class
     assert caught.value.retryable is retryable
@@ -63,7 +91,9 @@ def test_missing_activity_id_is_non_retryable_validation_failure() -> None:
     )
 
     with pytest.raises(FitnessOSError) as caught:
-        adapter.fetch_page(connection_id="connection", mode=SyncMode.INCREMENTAL, cursor=None)
+        adapter.fetch_page(
+            connection_id="connection", mode=SyncMode.INCREMENTAL, cursor=None
+        )
 
     assert caught.value.error_class is ErrorClass.VALIDATION
     assert not caught.value.retryable
@@ -77,9 +107,13 @@ def test_unknown_additive_field_remains_in_raw_evidence() -> None:
         "startTimeInSeconds": 1788200000,
         "futureGarminField": {"nested": True},
     }
-    adapter = GarminCompletedActivityAdapter(client=PayloadClient(payload), evidence_store=store)
+    adapter = GarminCompletedActivityAdapter(
+        client=PayloadClient(payload), evidence_store=store
+    )
 
-    page = adapter.fetch_page(connection_id="connection", mode=SyncMode.INCREMENTAL, cursor=None)
+    page = adapter.fetch_page(
+        connection_id="connection", mode=SyncMode.INCREMENTAL, cursor=None
+    )
     record = page.records[0]
 
     assert b"futureGarminField" in store.payloads[record.payload_reference]
