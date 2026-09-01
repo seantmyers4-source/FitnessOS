@@ -4,8 +4,17 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from packages.persistence.base import Base
@@ -130,7 +139,9 @@ class ProvenanceLink(Base):
         ),
     )
 
-    provenance_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    provenance_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
     version_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("canonical_version.version_id"), nullable=False, index=True
     )
@@ -171,7 +182,9 @@ class CurrentProjection(Base):
         UniqueConstraint("projection_type", "entity_id", name="uq_current_projection"),
     )
 
-    projection_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    projection_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
     projection_type: Mapped[str] = mapped_column(String(128), nullable=False)
     entity_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("canonical_entity.entity_id"), nullable=False, index=True
@@ -195,7 +208,9 @@ class IdempotencyRecord(Base):
         ),
     )
 
-    operation_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    operation_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
     operation_scope: Mapped[str] = mapped_column(String(128), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(512), nullable=False)
     operation_version: Mapped[str] = mapped_column(String(64), nullable=False)
