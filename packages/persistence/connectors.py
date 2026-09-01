@@ -18,7 +18,9 @@ class ConnectorRegistration(Base):
         UniqueConstraint("provider", "connector_version", name="uq_connector_registration"),
     )
 
-    connector_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    connector_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
     provider: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     connector_version: Mapped[str] = mapped_column(String(64), nullable=False)
     capability_manifest_reference: Mapped[str] = mapped_column(String(1024), nullable=False)
@@ -32,7 +34,9 @@ class ProviderConnection(Base):
 
     __tablename__ = "provider_connection"
 
-    connection_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    connection_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
     connector_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("connector_registration.connector_id"),
@@ -87,7 +91,9 @@ class SyncCheckpoint(Base):
         UniqueConstraint("connection_id", "source_stream", name="uq_sync_checkpoint_stream"),
     )
 
-    checkpoint_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    checkpoint_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
     connection_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("provider_connection.connection_id"),
