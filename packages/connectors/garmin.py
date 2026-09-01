@@ -54,7 +54,12 @@ class GarminEvidenceStore(Protocol):
 class GarminCompletedActivityAdapter:
     """Garmin source adapter. It emits source evidence only; never canonical entities."""
 
-    def __init__(self, *, client: GarminActivityClient, evidence_store: GarminEvidenceStore) -> None:
+    def __init__(
+        self,
+        *,
+        client: GarminActivityClient,
+        evidence_store: GarminEvidenceStore,
+    ) -> None:
         self._client = client
         self._evidence_store = evidence_store
 
