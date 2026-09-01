@@ -1,0 +1,54 @@
+name: FitnessOS CI
+
+on:
+  push:
+    branches: [main, "eng/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fitnessos
+          POSTGRES_PASSWORD: fitnessos
+          POSTGRES_DB: fitnessos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fitnessos -d fitnessos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      FITNESSOS_DATABASE_URL: postgresql+psycopg://fitnessos:fitnessos@localhost:5432/fitnessos
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Mypy
+        run: mypy apps packages
+
+      - name: Migration smoke test
+        run: alembic upgrade head
+
+      - name: Tests
+        run: pytest
