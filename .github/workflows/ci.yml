@@ -12,6 +12,22 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fitnessos
+          POSTGRES_PASSWORD: fitnessos
+          POSTGRES_DB: fitnessos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fitnessos -d fitnessos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      FITNESSOS_DATABASE_URL: postgresql+psycopg://fitnessos:fitnessos@localhost:5432/fitnessos
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +46,9 @@ jobs:
 
       - name: Mypy
         run: mypy apps packages
+
+      - name: Migration smoke test
+        run: alembic upgrade head
 
       - name: Tests
         run: pytest
