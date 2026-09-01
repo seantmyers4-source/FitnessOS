@@ -1,0 +1,1 @@
+"""FitnessOS executable applications."""
