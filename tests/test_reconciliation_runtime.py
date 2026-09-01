@@ -63,7 +63,11 @@ def test_external_authority_resolver_controls_selection() -> None:
         strategy_id = "configured"
         strategy_version = "7"
 
-        def evaluate(self, left: ReconciliationObservation, right: ReconciliationObservation) -> MatchEvaluation:
+        def evaluate(
+            self,
+            left: ReconciliationObservation,
+            right: ReconciliationObservation,
+        ) -> MatchEvaluation:
             return MatchEvaluation(
                 left.observation_id,
                 right.observation_id,
@@ -75,7 +79,13 @@ def test_external_authority_resolver_controls_selection() -> None:
     selected = uuid4()
 
     class StubResolver:
-        def resolve(self, *, entity_type: str, metric_reference: str, candidates: tuple[AuthorityCandidate, ...]) -> AuthorityResolution:
+        def resolve(
+            self,
+            *,
+            entity_type: str,
+            metric_reference: str,
+            candidates: tuple[AuthorityCandidate, ...],
+        ) -> AuthorityResolution:
             assert entity_type == "activity"
             assert metric_reference == "distance"
             assert candidates
