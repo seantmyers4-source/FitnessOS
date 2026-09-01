@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from packages.contracts.connectors import SourceEnvelope
+from packages.connectors.contracts import SourceEnvelope
 from packages.contracts.reconciliation import AuthorityCandidate, ReconciliationObservation
 
 
