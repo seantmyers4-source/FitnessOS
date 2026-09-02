@@ -20,12 +20,16 @@ jobs:
   plan:
     name: Validate, lock, and package NONPROD plan
     runs-on: ubuntu-latest
+    env:
+      PLAN_REPOSITORY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     defaults:
       run:
         working-directory: infra/terraform/nonprod
     steps:
-      - name: Checkout
+      - name: Checkout exact plan source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PLAN_REPOSITORY_SHA }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -55,6 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PLAN_REPOSITORY_SHA"
           mkdir -p plan-package
           terraform plan -input=false -lock-timeout=5m -out=plan-package/reviewed.tfplan
           terraform show -no-color plan-package/reviewed.tfplan > plan-package/reviewed-plan.txt
@@ -67,7 +72,7 @@ jobs:
           terraform_version="$(terraform version -json | jq -r '.terraform_version')"
 
           {
-            echo "REPOSITORY_SHA=$GITHUB_SHA"
+            echo "REPOSITORY_SHA=$PLAN_REPOSITORY_SHA"
             echo "TERRAFORM_VERSION=$terraform_version"
             echo "PROVIDER_LOCK_SHA256=$lock_sha"
             echo "PROJECT_ID=fitnessos-nonprod"
