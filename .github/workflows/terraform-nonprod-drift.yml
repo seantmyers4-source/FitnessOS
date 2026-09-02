@@ -39,8 +39,10 @@ jobs:
           terraform_version: 1.16.0
           terraform_wrapper: false
 
-      - name: Initialize protected backend
-        run: terraform init -input=false -lock-timeout=5m
+      - name: Initialize with committed lock
+        run: |
+          terraform init -input=false -lockfile=readonly -lock-timeout=5m
+          git diff --exit-code -- .terraform.lock.hcl
 
       - name: Detect drift
         shell: bash

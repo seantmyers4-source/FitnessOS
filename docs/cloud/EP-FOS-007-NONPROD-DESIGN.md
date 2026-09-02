@@ -120,3 +120,19 @@ Mutable tags may assist operators but cannot serve as release identity.
 ## 10. Recommended next PMO gate
 
 Approve the design and a monthly NONPROD budget ceiling before enabling runtime APIs or provisioning Artifact Registry, Cloud Run, Cloud SQL, Secret Manager, networking, or monitoring resources.
+
+## 11. Apply integrity corrective control
+
+FOS-CAR-CLOUD-001 requires the applied plan to be the exact reviewed artifact.
+
+The controlled apply workflow therefore separates final plan generation from apply:
+
+- the final-plan job records repository SHA, Terraform version, provider selections, target project, region, environment, certified application SHA, and plan checksum;
+- it retains both binary and human-readable plans;
+- the protected `fitnessos-nonprod` environment gates the downstream apply job;
+- apply downloads the same-run artifact;
+- apply verifies all recorded metadata, the committed provider lock, and SHA-256 checksums;
+- apply executes `terraform apply plan-package/approved.tfplan`;
+- apply never regenerates a plan.
+
+No apply is authorized until GitHub environment approval protection is configured and PMO separately authorizes execution.

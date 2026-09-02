@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   plan:
-    name: Validate and plan NONPROD
+    name: Validate, lock, and package NONPROD plan
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -43,11 +43,47 @@ jobs:
       - name: Format
         run: terraform fmt -check -recursive ..
 
-      - name: Initialize protected backend
-        run: terraform init -input=false -lock-timeout=5m
+      - name: Initialize with committed lock
+        run: |
+          terraform init -input=false -lockfile=readonly -lock-timeout=5m
+          git diff --exit-code -- .terraform.lock.hcl
 
       - name: Validate
         run: terraform validate
 
-      - name: Plan
-        run: terraform plan -input=false -lock-timeout=5m -out=nonprod.tfplan
+      - name: Generate review plan package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p plan-package
+          terraform plan -input=false -lock-timeout=5m -out=plan-package/reviewed.tfplan
+          terraform show -no-color plan-package/reviewed.tfplan > plan-package/reviewed-plan.txt
+          terraform providers > plan-package/provider-selections.txt
+          terraform version -json > plan-package/terraform-version.json
+          cp .terraform.lock.hcl plan-package/.terraform.lock.hcl
+
+          plan_sha="$(sha256sum plan-package/reviewed.tfplan | awk '{print $1}')"
+          lock_sha="$(sha256sum .terraform.lock.hcl | awk '{print $1}')"
+          terraform_version="$(terraform version -json | jq -r '.terraform_version')"
+
+          {
+            echo "REPOSITORY_SHA=$GITHUB_SHA"
+            echo "TERRAFORM_VERSION=$terraform_version"
+            echo "PROVIDER_LOCK_SHA256=$lock_sha"
+            echo "PROJECT_ID=fitnessos-nonprod"
+            echo "REGION=us-west1"
+            echo "ENVIRONMENT=nonprod"
+            echo "CERTIFIED_APPLICATION_SHA=18e4edfe6f0b8cbfa0c77ad86204c51bacbf5410"
+            echo "PLAN_SHA256=$plan_sha"
+          } > plan-package/plan-metadata.env
+
+          sha256sum             plan-package/reviewed.tfplan             plan-package/reviewed-plan.txt             plan-package/provider-selections.txt             plan-package/terraform-version.json             plan-package/.terraform.lock.hcl             > plan-package/checksums.sha256
+
+      - name: Upload review plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-nonprod-review-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/terraform/nonprod/plan-package/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: "Type APPLY-NONPROD after PMO approval"
+        description: "Type APPLY-NONPROD after PMO authorization"
         required: true
         type: string
 
@@ -17,19 +17,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  apply:
-    if: ${{ inputs.confirmation == 'APPLY-NONPROD' }}
-    name: Controlled NONPROD apply
+  final_plan:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirmation == 'APPLY-NONPROD' }}
+    name: Generate final plan for approval
     runs-on: ubuntu-latest
-    environment: fitnessos-nonprod
     defaults:
       run:
         working-directory: infra/terraform/nonprod
     steps:
-      - name: Checkout main only
+      - name: Checkout dispatched main commit
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -44,11 +43,118 @@ jobs:
           terraform_version: 1.16.0
           terraform_wrapper: false
 
-      - name: Initialize protected backend
-        run: terraform init -input=false -lock-timeout=5m
+      - name: Initialize with committed lock
+        run: |
+          terraform init -input=false -lockfile=readonly -lock-timeout=5m
+          git diff --exit-code -- .terraform.lock.hcl
 
-      - name: Recreate reviewed plan
-        run: terraform plan -input=false -lock-timeout=5m -out=nonprod.tfplan
+      - name: Validate
+        run: terraform validate
 
-      - name: Apply
-        run: terraform apply -input=false -lock-timeout=5m -auto-approve nonprod.tfplan
+      - name: Generate controlled final plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p plan-package
+          terraform plan -input=false -lock-timeout=5m -out=plan-package/approved.tfplan
+          terraform show -no-color plan-package/approved.tfplan > plan-package/approved-plan.txt
+          terraform providers > plan-package/provider-selections.txt
+          terraform version -json > plan-package/terraform-version.json
+          cp .terraform.lock.hcl plan-package/.terraform.lock.hcl
+
+          plan_sha="$(sha256sum plan-package/approved.tfplan | awk '{print $1}')"
+          lock_sha="$(sha256sum .terraform.lock.hcl | awk '{print $1}')"
+          terraform_version="$(terraform version -json | jq -r '.terraform_version')"
+
+          {
+            echo "REPOSITORY_SHA=$GITHUB_SHA"
+            echo "TERRAFORM_VERSION=$terraform_version"
+            echo "PROVIDER_LOCK_SHA256=$lock_sha"
+            echo "PROJECT_ID=fitnessos-nonprod"
+            echo "REGION=us-west1"
+            echo "ENVIRONMENT=nonprod"
+            echo "CERTIFIED_APPLICATION_SHA=18e4edfe6f0b8cbfa0c77ad86204c51bacbf5410"
+            echo "PLAN_SHA256=$plan_sha"
+          } > plan-package/plan-metadata.env
+
+          sha256sum             plan-package/approved.tfplan             plan-package/approved-plan.txt             plan-package/provider-selections.txt             plan-package/terraform-version.json             plan-package/.terraform.lock.hcl             > plan-package/checksums.sha256
+
+      - name: Upload final plan for protected approval
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-approved-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/terraform/nonprod/plan-package/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  apply:
+    name: Apply exact approved NONPROD plan
+    needs: final_plan
+    runs-on: ubuntu-latest
+    environment: fitnessos-nonprod
+    defaults:
+      run:
+        working-directory: infra/terraform/nonprod
+    steps:
+      - name: Checkout exact approved commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: fitnessos-nonprod
+          workload_identity_provider: projects/578189272278/locations/global/workloadIdentityPools/github-fitnessos/providers/github-actions
+          service_account: fitnessos-tf-nonprod@fitnessos-nonprod.iam.gserviceaccount.com
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+          terraform_wrapper: false
+
+      - name: Download approved plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-approved-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/terraform/nonprod/plan-package/
+
+      - name: Initialize with committed lock
+        run: |
+          terraform init -input=false -lockfile=readonly -lock-timeout=5m
+          git diff --exit-code -- .terraform.lock.hcl
+
+      - name: Verify approved plan integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          metadata="plan-package/plan-metadata.env"
+          read_value() {
+            grep -E "^$1=" "$metadata" | head -n 1 | cut -d= -f2-
+          }
+
+          test "$(read_value REPOSITORY_SHA)" = "$GITHUB_SHA"
+          test "$(read_value TERRAFORM_VERSION)" = "1.16.0"
+          test "$(read_value PROJECT_ID)" = "fitnessos-nonprod"
+          test "$(read_value REGION)" = "us-west1"
+          test "$(read_value ENVIRONMENT)" = "nonprod"
+          test "$(read_value CERTIFIED_APPLICATION_SHA)" = "18e4edfe6f0b8cbfa0c77ad86204c51bacbf5410"
+
+          actual_plan_sha="$(sha256sum plan-package/approved.tfplan | awk '{print $1}')"
+          actual_lock_sha="$(sha256sum .terraform.lock.hcl | awk '{print $1}')"
+          artifact_lock_sha="$(sha256sum plan-package/.terraform.lock.hcl | awk '{print $1}')"
+          actual_terraform_version="$(terraform version -json | jq -r '.terraform_version')"
+
+          test "$(read_value PLAN_SHA256)" = "$actual_plan_sha"
+          test "$(read_value PROVIDER_LOCK_SHA256)" = "$actual_lock_sha"
+          test "$actual_lock_sha" = "$artifact_lock_sha"
+          test "$actual_terraform_version" = "1.16.0"
+          cmp .terraform.lock.hcl plan-package/.terraform.lock.hcl
+          sha256sum -c plan-package/checksums.sha256
+          terraform show -no-color plan-package/approved.tfplan > /dev/null
+
+      - name: Apply exact approved plan
+        run: terraform apply -input=false -lock-timeout=5m plan-package/approved.tfplan

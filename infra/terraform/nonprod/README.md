@@ -17,16 +17,21 @@ This directory is the controlled Terraform root for EP-FOS-007.
 - Production Garmin credentials are prohibited.
 - Material recurring-cost resources require PMO approval.
 - State access uses GitHub OIDC and Workload Identity Federation; no service-account key is allowed.
-- The apply workflow runs only from `main`, requires the exact `APPLY-NONPROD` confirmation, uses a protected GitHub environment, and serializes applies.
+- Provider selections are committed in `.terraform.lock.hcl`; CI initializes with `-lockfile=readonly`.
 - Terraform state is versioned and protected by uniform bucket-level access and public-access prevention.
 
-## Workflow model
+## Plan and apply integrity
 
-1. Pull request runs formatting, initialization, validation, and plan.
-2. PMO reviews the plan and cost implications.
-3. Approved changes merge to `main`.
-4. An authorized operator dispatches the apply workflow through the `fitnessos-nonprod` environment.
-5. Weekly drift detection fails visibly when Terraform reports changes.
+1. Pull requests generate a saved binary plan, human-readable plan, provider record, metadata record, and SHA-256 checksums.
+2. Approved changes merge to `main`.
+3. An authorized operator dispatches the apply workflow with the exact `APPLY-NONPROD` confirmation.
+4. A dedicated final-plan job creates and uploads the final binary plan artifact.
+5. The `fitnessos-nonprod` protected environment pauses the apply job for human approval.
+6. Apply downloads the artifact created by the same workflow run.
+7. Apply verifies repository SHA, Terraform version, provider lock, project, region, environment, certified application SHA, and plan checksum.
+8. Apply executes the exact saved plan and never generates a replacement plan.
+
+Concurrent applies are prohibited.
 
 ## State recovery
 
