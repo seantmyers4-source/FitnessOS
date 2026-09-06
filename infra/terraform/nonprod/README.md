@@ -10,15 +10,24 @@ This directory is the controlled Terraform root for EP-FOS-007.
 - Certified application SHA: `18e4edfe6f0b8cbfa0c77ad86204c51bacbf5410`
 - Terraform state: `gs://fitnessos-nonprod-tfstate-578189272278/fitnessos/nonprod/foundation`
 
+## Tranche B plan-only candidate
+
+The candidate declares required APIs, a regional Docker repository, keyless runtime and deployment identities, two empty secret containers, a private scale-to-zero Cloud Run service, 30-day default-log retention, an instance-cap alert, and a $75 monthly budget with 50/75/90/100-percent alerts.
+
+The all-zero image digest is an intentional plan-only placeholder. It is not deployable and must be replaced by the immutable digest built from the certified application SHA before any Apply authorization. No public invoker IAM binding exists.
+
+Cloud SQL, VPC connectors, NAT, secret values, service-account keys, production resources, and production Garmin connectivity are excluded.
+
 ## Safety controls
 
 - Production project creation is prohibited.
 - Live Garmin production synchronization remains disabled.
 - Production Garmin credentials are prohibited.
 - Material recurring-cost resources require PMO approval.
+- Cloud Run has zero minimum instances, one maximum instance, 1 vCPU, 512 MiB, CPU only while processing, internal-only ingress, and deletion protection.
 - State access uses GitHub OIDC and Workload Identity Federation; no service-account key is allowed.
 - Provider selections are committed in `.terraform.lock.hcl`; CI initializes with `-lockfile=readonly`.
-- Terraform state is versioned and protected by uniform bucket-level access and public-access prevention.
+- Budget alerts are monitoring controls, not hard spending caps.
 
 ## Plan and apply integrity
 
@@ -31,16 +40,10 @@ This directory is the controlled Terraform root for EP-FOS-007.
 7. Apply verifies repository SHA, Terraform version, provider lock, project, region, environment, certified application SHA, and plan checksum.
 8. Apply executes the exact saved plan and never generates a replacement plan.
 
-Concurrent applies are prohibited.
+Concurrent applies are prohibited. Apply remains outside the Tranche B plan-only authorization.
 
-## State recovery
+## Deletion and rollback
 
-1. Stop all apply workflows.
-2. Record the affected state generation and commit SHA.
-3. Download the current and prior GCS object generations for evidence.
-4. Validate the prior generation against the matching repository commit.
-5. Restore only the approved generation.
-6. Run `terraform plan -refresh-only`.
-7. Resume applies only after PMO records the recovery decision.
+Before any future authorized deletion, preserve plan, state generation, logs, and immutable image digest. Disable new revisions, retain evidence, and remove resources only through a separately approved Terraform plan. Cloud Run deletion protection must be removed in a reviewed change before deletion.
 
-Never delete the state bucket or object history as a rollback shortcut.
+For state recovery: stop applies, record the state generation and commit SHA, validate the prior GCS generation against the matching repository commit, restore only the approved generation, and run `terraform plan -refresh-only`. Never delete state history as a rollback shortcut.

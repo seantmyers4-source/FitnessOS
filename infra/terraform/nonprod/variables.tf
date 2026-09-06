@@ -41,3 +41,31 @@ variable "certified_application_sha" {
     error_message = "A replacement application SHA requires Engineering, QA, and PMO authorization."
   }
 }
+
+variable "billing_account_id" {
+  description = "Billing account that owns the approved NONPROD budget."
+  type        = string
+  default     = "011C4A-DC4303-9B2787"
+}
+
+variable "candidate_image" {
+  description = "Plan-only immutable placeholder. It must be replaced by the certified build digest before Apply authorization."
+  type        = string
+  default     = "us-west1-docker.pkg.dev/fitnessos-nonprod/fitnessos-nonprod/athlete-api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+  validation {
+    condition     = can(regex("^us-west1-docker\\.pkg\\.dev/fitnessos-nonprod/fitnessos-nonprod/athlete-api@sha256:[0-9a-f]{64}$", var.candidate_image))
+    error_message = "The Cloud Run image must use the approved repository and an immutable SHA-256 digest."
+  }
+}
+
+variable "monthly_budget_usd" {
+  description = "PMO governance ceiling; a monitoring threshold, not a hard spending cap."
+  type        = number
+  default     = 75
+
+  validation {
+    condition     = var.monthly_budget_usd > 0 && var.monthly_budget_usd <= 75
+    error_message = "The NONPROD monthly budget must not exceed the approved $75 ceiling."
+  }
+}
