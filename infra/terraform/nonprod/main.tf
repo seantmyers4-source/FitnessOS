@@ -258,9 +258,5 @@ resource "google_billing_budget" "nonprod" {
     }
   }
 
-  all_updates_rule {
-    disable_default_iam_recipients = false
-  }
-
   depends_on = [google_project_service.required]
 }
