@@ -7,6 +7,14 @@ on:
         description: "Type APPLY-NONPROD after PMO authorization"
         required: true
         type: string
+      recovery_activation_utc:
+        description: "Approved temporary-IAM activation time (RFC 3339 UTC)"
+        required: true
+        type: string
+      recovery_expiration_utc:
+        description: "Absolute temporary-IAM expiration (RFC 3339 UTC; <=60 minutes)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -36,6 +44,37 @@ jobs:
           project_id: fitnessos-nonprod
           workload_identity_provider: projects/578189272278/locations/global/workloadIdentityPools/github-fitnessos/providers/github-actions
           service_account: fitnessos-tf-nonprod@fitnessos-nonprod.iam.gserviceaccount.com
+
+      - name: Verify complete Apply permission set
+        shell: bash
+        env:
+          RECOVERY_ACTIVATION_UTC: ${{ inputs.recovery_activation_utc }}
+          RECOVERY_EXPIRATION_UTC: ${{ inputs.recovery_expiration_utc }}
+        run: |
+          set +e
+          mkdir -p preflight-evidence
+          python3 ../../../scripts/cloud/gcp_permission_preflight.py \
+            --project fitnessos-nonprod \
+            --billing-account 011C4A-DC4303-9B2787 \
+            --state-bucket fitnessos-nonprod-tfstate-578189272278 \
+            --principal fitnessos-tf-nonprod@fitnessos-nonprod.iam.gserviceaccount.com \
+            --activation-time "$RECOVERY_ACTIVATION_UTC" \
+            --expiration-time "$RECOVERY_EXPIRATION_UTC" \
+            --minimum-remaining-minutes 20 \
+            --output preflight-evidence/permission-report.json
+          preflight_status=$?
+          sha256sum preflight-evidence/permission-report.json \
+            > preflight-evidence/checksums.sha256
+          exit "$preflight_status"
+
+      - name: Upload permission-preflight evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-permission-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/terraform/nonprod/preflight-evidence/
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
