@@ -24,8 +24,9 @@ google.subject              = assertion.sub
 attribute.repository        = assertion.repository
 attribute.repository_owner  = assertion.repository_owner
 attribute.ref               = assertion.ref
+attribute.base_ref          = assertion.base_ref
 attribute.event_name        = assertion.event_name
-attribute.workflow_ref      = assertion.job_workflow_ref
+attribute.workflow_ref      = assertion.workflow_ref
 ```
 
 Provider condition:
@@ -39,13 +40,47 @@ Service-account impersonation bindings are separate and conditional:
 
 | Target | PrincipalSet | Required binding condition |
 | --- | --- | --- |
-| Plan | repository attribute for `seantmyers4-source/FitnessOS` | `attribute.workflow_ref` is the Plan or Drift workflow; event is `pull_request`, `push`, `schedule`, or approved `workflow_dispatch`; ref/base is `main` where applicable |
-| Apply | repository attribute for `seantmyers4-source/FitnessOS` | workflow is exactly `terraform-nonprod-apply.yml`; event is `workflow_dispatch`; ref is `refs/heads/main` |
+| Plan | repository attribute for `seantmyers4-source/FitnessOS` | Direct workflow is exactly Plan or Drift; event and branch claims must match the matrix below |
+| Apply | repository attribute for `seantmyers4-source/FitnessOS` | Direct workflow is exactly `terraform-nonprod-apply.yml`; event is `workflow_dispatch`; ref is `refs/heads/main` |
 
 The Apply workflow additionally depends on the protected `fitnessos-nonprod`
 environment before the Apply job. Repository membership alone is insufficient.
 No wildcard workflow trust, service-account key, cross-impersonation binding, or
 Plan-to-Apply elevation is permitted.
+
+### Event, ref, and base-ref trust matrix
+
+These are direct workflows. `assertion.workflow_ref` identifies the workflow that
+GitHub is executing. `assertion.job_workflow_ref` is not mapped or accepted; it is
+reserved for a separately reviewed reusable-workflow design.
+
+All rows require the exact repository owner `seantmyers4-source`, exact repository
+`seantmyers4-source/FitnessOS`, and the exact workflow path shown. An exact path
+prefix ending in `.yml@` permits Git refs to follow the path but does not permit a
+different workflow file.
+
+| Identity | Direct workflow | Event | Required ref | Required base_ref |
+| --- | --- | --- | --- | --- |
+| Plan | `terraform-nonprod-plan.yml` | `pull_request` | GitHub-generated PR merge ref | `refs/heads/main` |
+| Plan | `terraform-nonprod-plan.yml` | `push` | `refs/heads/main` | not used |
+| Plan | `terraform-nonprod-drift.yml` | `schedule` | `refs/heads/main` | not used |
+| Plan | `terraform-nonprod-drift.yml` | `workflow_dispatch` | `refs/heads/main` | not used |
+| Apply | `terraform-nonprod-apply.yml` | `workflow_dispatch` | `refs/heads/main` | not used |
+
+The Plan service-account binding is the logical OR of these four Plan rows. The
+Apply service-account binding contains only the Apply row. In particular:
+
+```text
+pull_request => assertion.base_ref == "refs/heads/main"
+push | schedule | workflow_dispatch => assertion.ref == "refs/heads/main"
+direct workflow identity => assertion.workflow_ref
+reusable workflow identity => not authorized; assertion.job_workflow_ref is not mapped
+```
+
+A PR's `assertion.ref` is its GitHub-generated pull-request ref and is never used
+as evidence that the PR targets `main`. Missing or non-main `base_ref` rejects
+PR authentication. Plan and Drift paths cannot satisfy the Apply binding, and the
+Apply path cannot satisfy the Plan binding.
 
 ## Permanent Plan permission matrix
 
