@@ -51,6 +51,7 @@ serviceusage.services.enable
 serviceusage.services.get
 serviceusage.services.list
 serviceusage.services.use
+resourcemanager.projects.getIamPolicy
 ```
 
 Explicit exclusions:
@@ -69,6 +70,10 @@ artifactregistry.repositories.setIamPolicy
 
 The role is disabled and deleted after the incident is closed and no approved
 recovery or destroy procedure depends on it.
+
+The Terraform principal never receives `iam.roles.create`, `iam.roles.update`,
+`resourcemanager.projects.setIamPolicy`, or `billing.accounts.setIamPolicy` and
+therefore cannot create, bind, renew, or extend its own recovery access.
 
 ## Predefined-role evaluation and privilege difference
 
@@ -100,6 +105,43 @@ Use temporary predefined role `roles/billing.costsManager` at billing account
 `billing.budgets.update`, and `billing.budgets.delete`. The role includes broader
 cost and budget administration but not Billing Account Administrator authority.
 It is removed immediately after recovery convergence or any failed attempt.
+
+## Technically enforced conditional bindings
+
+Google Cloud documents temporary access using conditional allow-policy bindings and
+states that date/time attributes are recognized by all Google Cloud services. Cloud
+Billing accounts expose versioned IAM allow-policy get/set methods. Therefore the
+billing-account binding supports the same `request.time` condition model; no
+manual-only fallback is required or permitted.
+
+Both bindings use policy version 3 and the exact structure below. `ACTIVATION_UTC`
+and `EXPIRATION_UTC` are RFC 3339 UTC timestamps recorded by the grant implementer.
+`EXPIRATION_UTC` must be no later than 60 minutes after `ACTIVATION_UTC`.
+
+```yaml
+role: projects/fitnessos-nonprod/roles/fitnessosB1Recovery
+members:
+  - serviceAccount:fitnessos-tf-nonprod@fitnessos-nonprod.iam.gserviceaccount.com
+condition:
+  title: fitnessos-b1-recovery-expiration
+  description: activation_utc=ACTIVATION_UTC;expiration_utc=EXPIRATION_UTC;maximum_minutes=60
+  expression: request.time < timestamp("EXPIRATION_UTC")
+```
+
+```yaml
+role: roles/billing.costsManager
+members:
+  - serviceAccount:fitnessos-tf-nonprod@fitnessos-nonprod.iam.gserviceaccount.com
+condition:
+  title: fitnessos-b1-recovery-expiration
+  description: activation_utc=ACTIVATION_UTC;expiration_utc=EXPIRATION_UTC;maximum_minutes=60
+  expression: request.time < timestamp("EXPIRATION_UTC")
+```
+
+The grant implementer must fetch the current policy with requested version 3, retain
+its `etag`, add only the approved conditional binding, and set policy version 3 with
+the retained `etag`. An unconditional temporary binding is prohibited. These are
+future grant instructions only; this corrective PR creates no binding.
 
 ## Exact operation-to-permission matrix
 
@@ -136,29 +178,44 @@ risk.
 ## Temporary activation and revocation
 
 The earliest grant is after Architecture and PMO approve this exact specification.
-The maximum window is 60 minutes. Expiration is manual and controlled by a recorded
-deadline; a separate timer/alarm is mandatory because Google IAM bindings are not
-self-expiring unless an approved IAM Condition is introduced. The PMO grant approver
-authorizes the window. Project and billing owner `seantmyers4-source` implements both
-bindings. Only the separately authorized recovery workflow may execute during the
-window; unrelated infrastructure workflows remain prohibited. Cloud Platform records
-the grant timestamp and deadline and validates the grants using the permission
-preflight.
+The maximum window is 60 minutes and is enforced by each binding's absolute
+`request.time` condition. A separate timer/alarm and manual revocation remain mandatory
+defense in depth. The PMO grant approver authorizes the window. Project and billing
+owner `seantmyers4-source` implements both bindings. Only the separately authorized
+recovery workflow may execute during the window; unrelated infrastructure workflows
+remain prohibited. Cloud Platform records the activation and expiration timestamps
+and validates the live bindings using the permission preflight.
 
 Revocation is triggered immediately by successful convergence, failed recovery,
 integrity failure, timeout, or PMO hold. The same owner removes the custom project
 role binding and Billing Account Costs Manager binding. A second preflight must then
 fail for bootstrap permissions while confirming the permanent read/state baseline.
 Failure to revoke opens a security incident and blocks every infrastructure workflow.
+Revocation is required at the earliest of successful convergence, failed recovery,
+preflight failure, Terraform failure, unexpected plan change, PMO hold, security
+condition, manual abort, or the 60-minute maximum.
+
+Post-revocation verification fetches both version-3 policies and confirms the custom
+role binding and Costs Manager binding are absent or ineffective. It then confirms no
+permanent billing role, keyless WIF authentication, and zero user-managed service-
+account keys. The permission preflight must fail for the removed recovery permissions
+while the permanent Service Usage Consumer and bucket state access remain effective.
 
 ## Preventive permission gate
 
-The Apply workflow authenticates as the real WIF principal and calls the project,
-billing-account, and Cloud Storage `testIamPermissions` endpoints. It records every
-required, granted, and missing permission in a JSON report, hashes the report, and
-uploads it for 30 days. Any missing permission or evaluation error fails closed before
-Terraform setup or final-plan generation. Because the Apply job depends on the final
-plan job, a failed preflight cannot reach protected-environment eligibility.
+The Apply workflow authenticates as the real WIF principal, fetches the project and
+billing IAM policies at version 3, and calls the project, billing-account, and Cloud
+Storage `testIamPermissions` endpoints. It records the principal, scopes, live role
+bindings, exact condition expressions, activation and expiration timestamps, execution
+timestamp, remaining duration, required and missing permissions, prohibited permissions,
+and evaluation errors. It hashes the JSON report and retains it for 30 days.
+
+The gate fails before Terraform setup or final-plan generation for an absent,
+duplicate, unconditional, expired, over-60-minute, malformed, not-yet-active, mismatched,
+or insufficient-remaining-window binding; missing required permissions; detected
+prohibited permissions; or any policy/permission evaluation error. Because the Apply
+job depends on the final-plan job, a failed preflight cannot reach protected-environment
+eligibility. The governed minimum remaining duration is 20 minutes.
 
 `testIamPermissions` evaluates only the caller and requested resource at evaluation
 time. It cannot prove future availability, rule out deny-policy changes after the
@@ -194,5 +251,8 @@ model. No permanent elevated CI privilege is proposed.
   <https://cloud.google.com/resource-manager/reference/rest/v1/projects/testIamPermissions>
 - Cloud Billing `billingAccounts.testIamPermissions`:
   <https://cloud.google.com/billing/docs/reference/rest/v1/billingAccounts/testIamPermissions>
+- Cloud Billing `billingAccounts.getIamPolicy` and `setIamPolicy`:
+  <https://cloud.google.com/billing/docs/reference/rest/v1/billingAccounts/getIamPolicy>
+  and <https://cloud.google.com/billing/docs/reference/rest/v1/billingAccounts/setIamPolicy>
 - Cloud Storage `buckets.testIamPermissions`:
   <https://cloud.google.com/storage/docs/json_api/v1/buckets/testIamPermissions>
