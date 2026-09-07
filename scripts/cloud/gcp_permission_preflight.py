@@ -88,6 +88,7 @@ REQUIRED = {
 
 EXPECTED_PROJECT_ROLE = "projects/fitnessos-nonprod/roles/fitnessosB1Recovery"
 EXPECTED_BILLING_ROLE = "roles/billing.costsManager"
+EXPECTED_CONDITION_TITLE = "fitnessos-b1-recovery-expiration"
 CONDITION_RE = re.compile(r"^request\.time\s*<\s*timestamp\([\'\"]([^\'\"]+)[\'\"]\)$")
 DESCRIPTION_RE = re.compile(r"^activation_utc=([^;]+);expiration_utc=([^;]+);maximum_minutes=60$")
 
@@ -109,6 +110,8 @@ def validate_temporary_binding(
     execution_time: dt.datetime,
     minimum_remaining_minutes: int,
 ) -> dict[str, object]:
+    if policy.get("version") != 3:
+        return {"result": "FAIL", "errors": ["IAM policy version 3 is required"]}
     member = f"serviceAccount:{principal}"
     matches = [
         binding
@@ -125,6 +128,8 @@ def validate_temporary_binding(
         return {"result": "FAIL", "errors": ["temporary binding is unconditional"]}
 
     expression = condition.get("expression", "")
+    if condition.get("title") != EXPECTED_CONDITION_TITLE:
+        errors.append("condition title is malformed")
     expression_match = CONDITION_RE.fullmatch(expression.strip())
     description_match = DESCRIPTION_RE.fullmatch(condition.get("description", "").strip())
     if not expression_match:
