@@ -16,6 +16,8 @@ The candidate declares required APIs, a regional Docker repository, keyless runt
 
 The all-zero image digest is an intentional plan-only placeholder. It is not deployable and must be replaced by the immutable digest built from the certified application SHA before any Apply authorization. No public invoker IAM binding exists.
 
+The Apply workflow contains a fail-closed pre-plan check that rejects the all-zero digest. Internal-only ingress does not block outbound internet access; no network-layer egress restriction is claimed in this tranche.
+
 Cloud SQL, VPC connectors, NAT, secret values, service-account keys, production resources, and production Garmin connectivity are excluded.
 
 ## Safety controls
@@ -28,6 +30,7 @@ Cloud SQL, VPC connectors, NAT, secret values, service-account keys, production 
 - State access uses GitHub OIDC and Workload Identity Federation; no service-account key is allowed.
 - Provider selections are committed in `.terraform.lock.hcl`; CI initializes with `-lockfile=readonly`.
 - Budget alerts are monitoring controls, not hard spending caps.
+- The configuration does not impose a finite monthly cost maximum because egress, requests, logs, and retained tagged-image volume remain usage based.
 
 ## Plan and apply integrity
 

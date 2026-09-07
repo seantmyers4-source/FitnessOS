@@ -51,6 +51,16 @@ jobs:
       - name: Validate
         run: terraform validate
 
+      - name: Reject non-deployable image placeholder
+        shell: bash
+        run: |
+          set -euo pipefail
+          placeholder='sha256:0000000000000000000000000000000000000000000000000000000000000000'
+          if grep -R --fixed-strings "$placeholder" -- *.tf; then
+            echo "::error::Apply is blocked: replace the plan-only image placeholder with the certified immutable artifact digest."
+            exit 1
+          fi
+
       - name: Generate controlled final plan
         shell: bash
         run: |
