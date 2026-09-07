@@ -16,6 +16,14 @@ SPEC.loader.exec_module(MODULE)
 PLAN = ROOT / ".github/workflows/terraform-nonprod-plan.yml"
 DRIFT = ROOT / ".github/workflows/terraform-nonprod-drift.yml"
 APPLY = ROOT / ".github/workflows/terraform-nonprod-apply.yml"
+TRUST_DOC = ROOT / "docs/cloud/FOS-ADR-CLOUD-014-IMPLEMENTATION.md"
+
+REPOSITORY = "seantmyers4-source/FitnessOS"
+OWNER = "seantmyers4-source"
+MAIN_REF = "refs/heads/main"
+PLAN_WORKFLOW = "terraform-nonprod-plan.yml"
+DRIFT_WORKFLOW = "terraform-nonprod-drift.yml"
+APPLY_WORKFLOW = "terraform-nonprod-apply.yml"
 
 
 def workflow(path: Path) -> dict:
@@ -134,3 +142,137 @@ def test_no_plan_workflow_can_execute_apply(path: Path) -> None:
     assert "terraform apply" not in source
     assert "Apply exact approved" not in source
 
+
+
+def trust_allowed(
+    *,
+    identity: str,
+    workflow: str,
+    event: str,
+    ref: str,
+    base_ref: str | None = None,
+    repository: str = REPOSITORY,
+    owner: str = OWNER,
+    claim_name: str = "workflow_ref",
+) -> bool:
+    if repository != REPOSITORY or owner != OWNER or claim_name != "workflow_ref":
+        return False
+    if identity == "plan":
+        if workflow == PLAN_WORKFLOW and event == "pull_request":
+            return ref.startswith("refs/pull/") and base_ref == MAIN_REF
+        if workflow == PLAN_WORKFLOW and event == "push":
+            return ref == MAIN_REF
+        if workflow == DRIFT_WORKFLOW and event in {"schedule", "workflow_dispatch"}:
+            return ref == MAIN_REF
+        return False
+    if identity == "apply":
+        return workflow == APPLY_WORKFLOW and event == "workflow_dispatch" and ref == MAIN_REF
+    return False
+
+
+def test_direct_plan_workflow_is_accepted() -> None:
+    assert trust_allowed(
+        identity="plan",
+        workflow=PLAN_WORKFLOW,
+        event="pull_request",
+        ref="refs/pull/15/merge",
+        base_ref=MAIN_REF,
+    )
+
+
+@pytest.mark.parametrize("event", ["schedule", "workflow_dispatch"])
+def test_direct_drift_workflow_is_accepted(event: str) -> None:
+    assert trust_allowed(
+        identity="plan", workflow=DRIFT_WORKFLOW, event=event, ref=MAIN_REF
+    )
+
+
+def test_wrong_workflow_is_rejected() -> None:
+    assert not trust_allowed(
+        identity="plan", workflow="unreviewed.yml", event="push", ref=MAIN_REF
+    )
+
+
+def test_wildcard_workflow_trust_is_absent() -> None:
+    doc = TRUST_DOC.read_text()
+    assert "No wildcard workflow trust" in doc
+    assert "attribute.workflow_ref == \"*\"" not in doc
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("repository", "someone/FitnessOS"), ("owner", "someone")],
+)
+def test_wrong_repository_or_owner_is_rejected(field: str, value: str) -> None:
+    kwargs = {
+        "identity": "plan",
+        "workflow": PLAN_WORKFLOW,
+        "event": "push",
+        "ref": MAIN_REF,
+        field: value,
+    }
+    assert not trust_allowed(**kwargs)
+
+
+def test_wrong_event_is_rejected() -> None:
+    assert not trust_allowed(
+        identity="plan", workflow=PLAN_WORKFLOW, event="schedule", ref=MAIN_REF
+    )
+
+
+@pytest.mark.parametrize("workflow", [PLAN_WORKFLOW, DRIFT_WORKFLOW, APPLY_WORKFLOW])
+def test_wrong_main_ref_is_rejected(workflow: str) -> None:
+    event = "push" if workflow == PLAN_WORKFLOW else "workflow_dispatch"
+    identity = "apply" if workflow == APPLY_WORKFLOW else "plan"
+    assert not trust_allowed(
+        identity=identity, workflow=workflow, event=event, ref="refs/heads/feature"
+    )
+
+
+@pytest.mark.parametrize("base_ref", ["refs/heads/develop", None])
+def test_wrong_or_missing_pull_request_base_ref_is_rejected(
+    base_ref: str | None,
+) -> None:
+    assert not trust_allowed(
+        identity="plan",
+        workflow=PLAN_WORKFLOW,
+        event="pull_request",
+        ref="refs/pull/15/merge",
+        base_ref=base_ref,
+    )
+
+
+def test_job_workflow_ref_substitution_is_rejected() -> None:
+    assert not trust_allowed(
+        identity="plan",
+        workflow=PLAN_WORKFLOW,
+        event="push",
+        ref=MAIN_REF,
+        claim_name="job_workflow_ref",
+    )
+    doc = TRUST_DOC.read_text()
+    assert "attribute.workflow_ref      = assertion.workflow_ref" in doc
+    assert "attribute.workflow_ref      = assertion.job_workflow_ref" not in doc
+
+
+@pytest.mark.parametrize("workflow", [PLAN_WORKFLOW, DRIFT_WORKFLOW])
+def test_plan_or_drift_workflow_cannot_assume_apply_identity(workflow: str) -> None:
+    assert not trust_allowed(
+        identity="apply", workflow=workflow, event="workflow_dispatch", ref=MAIN_REF
+    )
+
+
+def test_apply_workflow_cannot_assume_plan_identity() -> None:
+    assert not trust_allowed(
+        identity="plan",
+        workflow=APPLY_WORKFLOW,
+        event="workflow_dispatch",
+        ref=MAIN_REF,
+    )
+
+
+def test_pull_request_target_uses_base_ref_not_ref() -> None:
+    doc = TRUST_DOC.read_text()
+    assert "attribute.base_ref          = assertion.base_ref" in doc
+    assert 'assertion.base_ref == "refs/heads/main"' in doc
+    assert "A PR's `assertion.ref` is its GitHub-generated pull-request ref" in doc
