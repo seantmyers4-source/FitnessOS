@@ -31,7 +31,34 @@ jobs:
         with:
           project_id: fitnessos-nonprod
           workload_identity_provider: projects/578189272278/locations/global/workloadIdentityPools/github-fitnessos/providers/github-actions
-          service_account: fitnessos-tf-nonprod@fitnessos-nonprod.iam.gserviceaccount.com
+          service_account: fitnessos-tf-plan-np@fitnessos-nonprod.iam.gserviceaccount.com
+
+      - name: Verify dedicated Plan identity and read permissions
+        shell: bash
+        env:
+          PLAN_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set +e
+          mkdir -p preflight-evidence
+          python3 ../../../scripts/cloud/gcp_plan_permission_preflight.py \
+            --project fitnessos-nonprod \
+            --state-bucket fitnessos-nonprod-tfstate-578189272278 \
+            --expected-principal fitnessos-tf-plan-np@fitnessos-nonprod.iam.gserviceaccount.com \
+            --workflow-ref "$PLAN_WORKFLOW_REF" \
+            --output preflight-evidence/plan-permission-report.json
+          status=$?
+          sha256sum preflight-evidence/plan-permission-report.json \
+            > preflight-evidence/checksums.sha256
+          exit "$status"
+
+      - name: Upload Plan preflight evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-drift-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/terraform/nonprod/preflight-evidence/
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -59,3 +86,4 @@ jobs:
           else
             exit "$exit_code"
           fi
+
