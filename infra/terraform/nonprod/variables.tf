@@ -41,3 +41,20 @@ variable "certified_application_sha" {
     error_message = "A replacement application SHA requires Engineering, QA, and PMO authorization."
   }
 }
+
+variable "billing_account_id" {
+  description = "Billing account that owns the approved NONPROD budget."
+  type        = string
+  default     = "011C4A-DC4303-9B2787"
+}
+
+variable "monthly_budget_usd" {
+  description = "PMO governance ceiling; a notification threshold, not a hard spending cap."
+  type        = number
+  default     = 75
+
+  validation {
+    condition     = var.monthly_budget_usd > 0 && var.monthly_budget_usd <= 75
+    error_message = "The NONPROD monthly budget must not exceed the approved $75 ceiling."
+  }
+}
