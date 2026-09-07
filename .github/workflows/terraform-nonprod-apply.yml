@@ -7,6 +7,14 @@ on:
         description: "Type APPLY-NONPROD after PMO authorization"
         required: true
         type: string
+      recovery_activation_utc:
+        description: "Approved temporary-IAM activation time (RFC 3339 UTC)"
+        required: true
+        type: string
+      recovery_expiration_utc:
+        description: "Absolute temporary-IAM expiration (RFC 3339 UTC; <=60 minutes)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -39,6 +47,9 @@ jobs:
 
       - name: Verify complete Apply permission set
         shell: bash
+        env:
+          RECOVERY_ACTIVATION_UTC: ${{ inputs.recovery_activation_utc }}
+          RECOVERY_EXPIRATION_UTC: ${{ inputs.recovery_expiration_utc }}
         run: |
           set +e
           mkdir -p preflight-evidence
@@ -47,6 +58,9 @@ jobs:
             --billing-account 011C4A-DC4303-9B2787 \
             --state-bucket fitnessos-nonprod-tfstate-578189272278 \
             --principal fitnessos-tf-nonprod@fitnessos-nonprod.iam.gserviceaccount.com \
+            --activation-time "$RECOVERY_ACTIVATION_UTC" \
+            --expiration-time "$RECOVERY_EXPIRATION_UTC" \
+            --minimum-remaining-minutes 20 \
             --output preflight-evidence/permission-report.json
           preflight_status=$?
           sha256sum preflight-evidence/permission-report.json \
