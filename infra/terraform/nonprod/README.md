@@ -2,6 +2,11 @@
 
 This directory is the controlled Terraform root for EP-FOS-007.
 
+The current candidate is **B1 bounded foundation only**. It contains no Cloud Run
+service or job, deployable image, executable workload, runtime egress path, secret
+version, or operational runtime/deployment IAM grant. Those concerns are deferred
+to a separately authorized B2.
+
 ## Authority
 
 - Project: `fitnessos-nonprod`
@@ -16,6 +21,9 @@ This directory is the controlled Terraform root for EP-FOS-007.
 - Live Garmin production synchronization remains disabled.
 - Production Garmin credentials are prohibited.
 - Material recurring-cost resources require PMO approval.
+- The runtime and deployment identities are keyless and intentionally permissionless in B1.
+- The single Secret Manager container is empty; no versions, values, or accessor grants exist.
+- Artifact Registry removes untagged versions after seven days and retains ten recent versions by policy.
 - State access uses GitHub OIDC and Workload Identity Federation; no service-account key is allowed.
 - Provider selections are committed in `.terraform.lock.hcl`; CI initializes with `-lockfile=readonly`.
 - Terraform state is versioned and protected by uniform bucket-level access and public-access prevention.

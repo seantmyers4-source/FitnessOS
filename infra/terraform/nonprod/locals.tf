@@ -5,6 +5,7 @@ locals {
     managed_by  = "terraform"
     program     = "ep-fos-007"
     scope       = "garmin-scope-a"
+    tranche     = "b1-foundation"
   }
 
   mandatory_controls = {
@@ -13,4 +14,12 @@ locals {
     production_credentials      = "prohibited"
     material_costs              = "pmo-approval-required"
   }
+
+  required_services = toset([
+    "artifactregistry.googleapis.com",
+    "billingbudgets.googleapis.com",
+    "iam.googleapis.com",
+    "logging.googleapis.com",
+    "secretmanager.googleapis.com",
+  ])
 }
