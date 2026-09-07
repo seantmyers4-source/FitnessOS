@@ -39,6 +39,11 @@ BACKEND_PERMISSIONS = {
     "storage.objects.list",
 }
 
+BACKEND_PROHIBITED_PERMISSIONS = {
+    "storage.buckets.setIamPolicy",
+    "storage.objects.update",
+}
+
 PROHIBITED_PERMISSIONS = {
     "artifactregistry.repositories.create",
     "artifactregistry.repositories.delete",
@@ -71,7 +76,7 @@ PROHIBITED_PERMISSIONS = {
     "secretmanager.versions.enable",
     "serviceusage.services.disable",
     "serviceusage.services.enable",
-}
+} | BACKEND_PROHIBITED_PERMISSIONS
 
 ALLOWED_WORKFLOWS = {
     ".github/workflows/terraform-nonprod-plan.yml",
@@ -185,7 +190,9 @@ def main() -> int:
                 token,
             )
             backend = _bucket_permissions(
-                args.state_bucket, BACKEND_PERMISSIONS | PROHIBITED_PERMISSIONS, token
+                args.state_bucket,
+                BACKEND_PERMISSIONS | BACKEND_PROHIBITED_PERMISSIONS,
+                token,
             )
         report = evaluate(
             principal=principal,
@@ -211,4 +218,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
