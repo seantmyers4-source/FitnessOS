@@ -38,6 +38,7 @@ resource "google_artifact_registry_repository" "application" {
       older_than = "604800s"
     }
   }
+
   cleanup_policies {
     id     = "retain-ten-recent-versions"
     action = "KEEP"
@@ -45,6 +46,7 @@ resource "google_artifact_registry_repository" "application" {
       keep_count = 10
     }
   }
+
   depends_on = [google_project_service.required]
 }
 
@@ -52,20 +54,21 @@ resource "google_service_account" "runtime" {
   project      = var.project_id
   account_id   = "fitnessos-runtime-np"
   display_name = "FitnessOS NONPROD runtime (reserved)"
-  description = "Keyless identity reserved for B2; B1 grants no runtime permissions"
+  description  = "Keyless identity reserved for B2; B1 grants no runtime permissions"
 }
 
 resource "google_service_account" "deployment" {
   project      = var.project_id
   account_id   = "fitnessos-deploy-np"
   display_name = "FitnessOS NONPROD deployment (reserved)"
-  description = "Keyless identity reserved for B2; B1 grants no deployment permissions"
+  description  = "Keyless identity reserved for B2; B1 grants no deployment permissions"
 }
 
 resource "google_secret_manager_secret" "app_config" {
   project   = var.project_id
   secret_id = "fitnessos-nonprod-app-config"
   labels    = local.labels
+
   replication {
     user_managed {
       replicas {
@@ -73,6 +76,7 @@ resource "google_secret_manager_secret" "app_config" {
       }
     }
   }
+
   depends_on = [google_project_service.required]
 }
 
@@ -81,21 +85,25 @@ resource "google_logging_project_bucket_config" "default" {
   location       = "global"
   bucket_id      = "_Default"
   retention_days = 30
+
   depends_on = [google_project_service.required]
 }
 
 resource "google_billing_budget" "nonprod" {
   billing_account = var.billing_account_id
   display_name    = "FitnessOS NONPROD monthly governance ceiling"
+
   budget_filter {
     projects = ["projects/${var.project_id}"]
   }
+
   amount {
     specified_amount {
       currency_code = "USD"
       units         = tostring(var.monthly_budget_usd)
     }
   }
+
   dynamic "threshold_rules" {
     for_each = toset([0.50, 0.75, 0.90, 1.00])
     content {
@@ -103,8 +111,10 @@ resource "google_billing_budget" "nonprod" {
       spend_basis       = "CURRENT_SPEND"
     }
   }
+
   all_updates_rule {
     disable_default_iam_recipients = false
   }
+
   depends_on = [google_project_service.required]
 }
