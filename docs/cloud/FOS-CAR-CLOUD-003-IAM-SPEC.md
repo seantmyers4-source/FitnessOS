@@ -143,6 +143,21 @@ its `etag`, add only the approved conditional binding, and set policy version 3 
 the retained `etag`. An unconditional temporary binding is prohibited. These are
 future grant instructions only; this corrective PR creates no binding.
 
+## Certification boundary for PR #14
+
+PR #14 certifies only the read-only, fail-closed permission preflight. It does not
+implement or certify an IAM grant, renewal, extension, or revocation mechanism and
+contains no IAM-policy write behavior. Actual activation and revocation are a
+separate future certification object requiring Architecture, independent QA, and
+PMO approval before use.
+
+That future activation package must independently demonstrate version-3 policy
+retrieval, preservation of the current `etag`, minimal insertion of exactly one
+approved conditional binding, rejection of concurrent-policy overwrite, exact
+removal of that binding, and post-revocation verification. A stale or changed
+`etag` must fail closed; retry may occur only after retrieving and reviewing the
+new policy. Nothing in PR #14 authorizes or supplies this future IAM-write path.
+
 ## Exact operation-to-permission matrix
 
 | Resource class | Operation | Exact permission | Scope | Lifecycle |
@@ -256,3 +271,4 @@ model. No permanent elevated CI privilege is proposed.
   and <https://cloud.google.com/billing/docs/reference/rest/v1/billingAccounts/setIamPolicy>
 - Cloud Storage `buckets.testIamPermissions`:
   <https://cloud.google.com/storage/docs/json_api/v1/buckets/testIamPermissions>
+
