@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "project": "fitnessos-nonprod",
+  "region": "us-west1",
+  "identities": {
+    "plan": "fitnessos-tf-plan-np@fitnessos-nonprod.iam.gserviceaccount.com",
+    "apply": "fitnessos-tf-nonprod@fitnessos-nonprod.iam.gserviceaccount.com"
+  },
+  "custom_roles": {
+    "plan": {
+      "id": "projects/fitnessos-nonprod/roles/fitnessosTerraformPlanRead",
+      "title": "FitnessOS Terraform Plan Read",
+      "description": "Permanent B1 provider refresh reads for the dedicated Plan identity.",
+      "stage": "GA",
+      "permissions": [
+        "resourcemanager.projects.get",
+        "serviceusage.services.get",
+        "serviceusage.services.list",
+        "iam.serviceAccounts.get",
+        "iam.serviceAccounts.list",
+        "artifactregistry.locations.get",
+        "artifactregistry.locations.list",
+        "artifactregistry.repositories.get",
+        "artifactregistry.repositories.list",
+        "secretmanager.locations.get",
+        "secretmanager.locations.list",
+        "secretmanager.secrets.get",
+        "secretmanager.secrets.list",
+        "logging.buckets.get",
+        "billing.resourcebudgets.read"
+      ],
+      "assignee": "plan"
+    },
+    "apply": {
+      "id": "projects/fitnessos-nonprod/roles/fitnessosTerraformApplyRead",
+      "title": "FitnessOS Terraform Apply Read",
+      "description": "Independent permanent B1 provider refresh reads for the Apply identity.",
+      "stage": "GA",
+      "permissions": [
+        "resourcemanager.projects.get",
+        "serviceusage.services.get",
+        "serviceusage.services.list",
+        "iam.serviceAccounts.get",
+        "iam.serviceAccounts.list",
+        "artifactregistry.locations.get",
+        "artifactregistry.locations.list",
+        "artifactregistry.repositories.get",
+        "artifactregistry.repositories.list",
+        "secretmanager.locations.get",
+        "secretmanager.locations.list",
+        "secretmanager.secrets.get",
+        "secretmanager.secrets.list",
+        "logging.buckets.get",
+        "billing.resourcebudgets.read"
+      ],
+      "assignee": "apply"
+    },
+    "backend": {
+      "id": "projects/fitnessos-nonprod/roles/fitnessosTerraformBackend",
+      "title": "FitnessOS Terraform Backend",
+      "description": "B1 state read and lock-object lifecycle only.",
+      "stage": "GA",
+      "permissions": [
+        "storage.objects.get",
+        "storage.objects.list",
+        "storage.objects.create",
+        "storage.objects.delete"
+      ],
+      "assignee": [
+        "plan",
+        "apply"
+      ]
+    }
+  },
+  "backend": {
+    "bucket": "fitnessos-nonprod-tfstate-578189272278",
+    "state_object": "fitnessos/nonprod/foundation/default.tfstate",
+    "lock_object": "fitnessos/nonprod/foundation/default.tfstate.tflock",
+    "canonical_prefix": "projects/_/buckets/fitnessos-nonprod-tfstate-578189272278/objects/fitnessos/nonprod/foundation/",
+    "condition": "resource.name.startsWith(\"projects/_/buckets/fitnessos-nonprod-tfstate-578189272278/objects/fitnessos/nonprod/foundation/\")"
+  },
+  "wif": {
+    "provider": "projects/578189272278/locations/global/workloadIdentityPools/github-fitnessos/providers/github-actions",
+    "attribute_mapping": {
+      "google.subject": "assertion.sub",
+      "attribute.repository": "assertion.repository",
+      "attribute.repository_owner": "assertion.repository_owner",
+      "attribute.ref": "assertion.ref",
+      "attribute.base_ref": "assertion.base_ref",
+      "attribute.event_name": "assertion.event_name",
+      "attribute.workflow_ref": "assertion.workflow_ref"
+    },
+    "provider_condition": "assertion.repository_owner == \"seantmyers4-source\" && assertion.repository == \"seantmyers4-source/FitnessOS\""
+  },
+  "trust": [
+    {
+      "identity": "plan",
+      "workflow": "seantmyers4-source/FitnessOS/.github/workflows/terraform-nonprod-plan.yml",
+      "event": "pull_request",
+      "ref_prefix": "refs/pull/",
+      "base_ref": "refs/heads/main"
+    },
+    {
+      "identity": "plan",
+      "workflow": "seantmyers4-source/FitnessOS/.github/workflows/terraform-nonprod-plan.yml",
+      "event": "push",
+      "ref": "refs/heads/main"
+    },
+    {
+      "identity": "plan",
+      "workflow": "seantmyers4-source/FitnessOS/.github/workflows/terraform-nonprod-drift.yml",
+      "event": "schedule",
+      "ref": "refs/heads/main"
+    },
+    {
+      "identity": "plan",
+      "workflow": "seantmyers4-source/FitnessOS/.github/workflows/terraform-nonprod-drift.yml",
+      "event": "workflow_dispatch",
+      "ref": "refs/heads/main"
+    },
+    {
+      "identity": "apply",
+      "workflow": "seantmyers4-source/FitnessOS/.github/workflows/terraform-nonprod-apply.yml",
+      "event": "workflow_dispatch",
+      "ref": "refs/heads/main",
+      "environment": "fitnessos-nonprod"
+    }
+  ],
+  "temporary_recovery": {
+    "maximum_minutes": 60,
+    "minimum_remaining_minutes": 20,
+    "self_extension": false,
+    "manual_revocation": true
+  },
+  "state_baseline": {
+    "serial": 2,
+    "lineage": "f285f528-7515-e12d-6012-5908c9e041bc",
+    "objects": [
+      "terraform_data.foundation_guard",
+      "google_project_service.required[\"iam.googleapis.com\"]",
+      "google_project_service.required[\"logging.googleapis.com\"]"
+    ]
+  },
+  "billing_budget": {
+    "resource": "google_billing_budget.nonprod",
+    "preferred_permissions": [
+      "resourcemanager.projects.get",
+      "billing.resourcebudgets.read"
+    ],
+    "fallback_requires_new_approval": [
+      "billing.budgets.get",
+      "billing.budgets.list"
+    ]
+  }
+}
