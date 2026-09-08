@@ -45,17 +45,28 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         raise ActivationError("reusable-workflow claim is prohibited")
     plan = set(manifest["custom_roles"]["plan"]["permissions"])
     apply = set(manifest["custom_roles"]["apply"]["permissions"])
-    if plan != apply or manifest["custom_roles"]["plan"]["id"] == manifest["custom_roles"]["apply"]["id"]:
+    same_role_id = (
+        manifest["custom_roles"]["plan"]["id"]
+        == manifest["custom_roles"]["apply"]["id"]
+    )
+    if plan != apply or same_role_id:
         raise ActivationError("independent read roles must have equal contents and distinct IDs")
     backend = set(manifest["custom_roles"]["backend"]["permissions"])
-    if backend != {"storage.objects.get", "storage.objects.list", "storage.objects.create", "storage.objects.delete"}:
+    expected_backend = {
+        "storage.objects.get",
+        "storage.objects.list",
+        "storage.objects.create",
+        "storage.objects.delete",
+    }
+    if backend != expected_backend:
         raise ActivationError("backend permission ceiling violated")
     prefix = manifest["backend"]["canonical_prefix"]
     expected = (
         "projects/_/buckets/fitnessos-nonprod-tfstate-578189272278/"
         "objects/fitnessos/nonprod/foundation/"
     )
-    if prefix != expected or manifest["backend"]["condition"] != f'resource.name.startsWith("{expected}")':
+    expected_condition = f'resource.name.startsWith("{expected}")'
+    if prefix != expected or manifest["backend"]["condition"] != expected_condition:
         raise ActivationError("backend namespace condition is not exact")
     if manifest["temporary_recovery"] != {
         "maximum_minutes": 60,
